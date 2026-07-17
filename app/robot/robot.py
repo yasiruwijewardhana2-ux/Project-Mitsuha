@@ -9,6 +9,9 @@ from app.robot.expressions import ExpressionManager
 from app.robot.effects import EffectsManager
 from app.core.animation_manager import AnimationManager, AnimationTask
 
+# අලුතින් එකතු කළ CompanionCore
+from app.robot.companion_core import CompanionCore
+
 # Imports for Behavior Tree
 from app.robot.autonomy.behavior_tree import Selector, IdleWanderNode, ExpressionReactionNode
 
@@ -19,6 +22,9 @@ class Robot:
 
         self.anim_engine = AnimationEngine()
         self.anim_manager = AnimationManager()
+        
+        # Companion Core එක initialize කරන්න
+        self.companion = CompanionCore()
         
         # 2. Behavior Tree (Brain) - Nodes ඇතුලත් කිරීම
         self.brain = Selector([
@@ -47,11 +53,8 @@ class Robot:
         # Animation Manager එක update කරන්න
         self.anim_manager.update(dt)
 
-        # Auto blink එක විතරක් තියාගමු
+        # Auto blink එක
         self._handle_auto_blink(dt)
-        
-        # පරණ hard-coded saccades අයින් කළා - දැන් ඔක්කොම tree එකෙන් වෙන්නේ
-        # self._handle_biological_saccades(dt) 
 
         self.anim_engine.update(dt)
         self.effects.update(dt, self.expr_manager.current_expression)
@@ -59,15 +62,21 @@ class Robot:
         self.spring_x.update()
         self.spring_y.update()
 
+        # Breathing logic
         if self.expr_manager.current_expression == Expression.SLEEPING:
             self.breathe_offset = math.sin(self.effects.pulse_time * 1.5) * 5.0
         else:
             self.breathe_offset = math.sin(self.effects.pulse_time * 3.0) * 1.5
 
     def _handle_auto_blink(self, dt):
-        if self.expr_manager.current_expression in (Expression.SLEEPING, Expression.CHARGING):
+        if self.expr_manager.current_expression in (
+            Expression.SLEEPING,
+            Expression.CHARGING,
+        ):
             return
+
         self._next_blink_timer -= dt
+
         if self._next_blink_timer <= 0:
             self.blink()
             self._next_blink_timer = random.uniform(1.5, 5.0)
@@ -78,6 +87,9 @@ class Robot:
         self._idle_look_timer = 4.0
 
     def blink(self, duration=APP_CONFIG.BLINK_DURATION):
+        """
+        Blink animation using the AnimationManager.
+        """
         def perform_blink():
             def open_eyes():
                 for is_left, eye in ((True, self.left_eye), (False, self.right_eye)):
@@ -90,4 +102,9 @@ class Robot:
                 self.anim_engine.animate(eye, "top_lid", 1.0, duration / 2, priority=AnimationPriority.HIGH, on_complete=open_eyes if eye == self.left_eye else None)
                 self.anim_engine.animate(eye, "bottom_lid", 0.0, duration / 2, priority=AnimationPriority.HIGH)
 
-        self.anim_manager.add_task(AnimationTask(name="blink", priority=AnimationPriority.HIGH, action=perform_blink, duration=duration))
+        self.anim_manager.add_task(AnimationTask(
+            name="blink",
+            priority=AnimationPriority.HIGH,
+            action=perform_blink,
+            duration=duration
+        ))
