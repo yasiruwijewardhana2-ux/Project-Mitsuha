@@ -1,9 +1,17 @@
 import sqlite3
 import datetime
+import os
 
 class DatabaseManager:
     def __init__(self, db_name="mitsuha_memory.db"):
-        self.conn = sqlite3.connect(db_name, check_same_thread=False)
+        # database.py තියෙන තැනටම path එක set කරනවා
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        db_path = os.path.join(base_dir, db_name)
+        
+        # මේක run කරනකොට console එකේ print වෙයි file එක කොහෙද හැදෙන්නේ කියලා
+        print(f"Database location: {db_path}") 
+        
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
         self.cursor = self.conn.cursor()
         self.create_tables()
 
