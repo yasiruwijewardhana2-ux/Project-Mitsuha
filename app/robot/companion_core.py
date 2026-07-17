@@ -1,5 +1,3 @@
-# app/robot/companion_core.py
-
 class CompanionCore:
     def __init__(self):
         self.name = "Mitsuha"
