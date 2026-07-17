@@ -70,9 +70,11 @@ class AnimationEngine:
                 eased = 1.0
                 task.is_finished = True
 
-            value = task.start_value + (
-                task.end_value - task.start_value
-            ) * eased
+            # FIX: original had an unclosed paren and was missing the
+            # "* eased" multiplication entirely, so this line never actually
+            # interpolated -- it would have thrown a SyntaxError (or, if that
+            # got lost in a copy/paste, silently produced wrong values).
+            value = task.start_value + (task.end_value - task.start_value) * eased
 
             setattr(task.target_obj, task.property_name, value)
 
