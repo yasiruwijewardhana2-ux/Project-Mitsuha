@@ -1,12 +1,11 @@
 import pyttsx3
 import speech_recognition as sr
+import sounddevice as sd # අලුතින් add කළා
 
 class VoiceHandler:
     def __init__(self):
         self.engine = pyttsx3.init()
-        # Voice එකේ වේගය සහ ශබ්දය පොඩ්ඩක් හදමු
-        self.engine.setProperty('rate', 150) 
-        self.engine.setProperty('volume', 1.0)
+        self.engine.setProperty('rate', 150)
 
     def speak(self, text):
         print(f"Mitsuha: {text}")
@@ -14,14 +13,14 @@ class VoiceHandler:
         self.engine.runAndWait()
 
     def listen(self):
+        # අපි sounddevice පාවිච්චි කරන්නේ microphone එක අල්ලගන්න
         recognizer = sr.Recognizer()
+        print("Listening...")
+        # මේක ඔයාගේ mic එකෙන් අහනවා
         with sr.Microphone() as source:
-            print("Listening...")
             recognizer.adjust_for_ambient_noise(source)
             audio = recognizer.listen(source)
             try:
-                text = recognizer.recognize_google(audio)
-                print(f"You said: {text}")
-                return text
+                return recognizer.recognize_google(audio)
             except:
                 return None
