@@ -2,25 +2,24 @@ import os
 from openai import OpenAI
 from dotenv import load_dotenv
 from pathlib import Path
-from app.robot.database import DatabaseManager
 
+# .env එක load කරනවා
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 class CompanionCore:
     def __init__(self):
-        self.db = DatabaseManager()
+        # Groq එකට සම්බන්ධ වෙන්න ඕනේ විදිහ
+        self.client = OpenAI(
+            base_url="https://api.groq.com/openai/v1",
+            api_key=os.getenv("GROQ_API_KEY") # ඔයාගේ .env එකේ මේ නමින් key එක දාන්න
+        )
         self.name = "Mitsuha"
-        self.user_name = self.db.get_preference("user_name") or "Yasiru"
-        
-        # OpenAI Client setup
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     def get_response(self, user_message):
-        # OpenAI Chat completion call
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4o-mini", # මේක ලාබයි, හරිම වේගවත්
+                model="llama-3.1-8b-instant", # Groq එකේ තියෙන වේගවත්ම එක
                 messages=[
                     {"role": "system", "content": f"You are {self.name}, helpful and witty."},
                     {"role": "user", "content": user_message}
@@ -28,4 +27,4 @@ class CompanionCore:
             )
             return response.choices[0].message.content
         except Exception as e:
-            return f"අයියෝ, OpenAI එකේ පොඩි අවුලක්: {e}"
+            return f"Error: {e}"
