@@ -72,7 +72,7 @@ Respond to the user's latest message. Remember to speak directly to {self.user_n
         try:
             # අලුත් SDK සහ අලුත්ම Gemini 2.5 flash මොඩලය භාවිතය
             response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-3.5-flash',
                 contents=prompt,
             )
             mitsuha_reply = response.text.strip()
