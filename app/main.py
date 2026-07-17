@@ -4,11 +4,12 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from app.ui.window import MainWindow
 from app.robot.companion_core import CompanionCore
-from app.robot.voice_handler import VoiceThread
 
 if __name__ == "__main__":
+    # Logging setup
     logging.basicConfig(level=logging.INFO)
 
+    # UI scaling සැකසුම්
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
@@ -16,17 +17,11 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
 
-    # Initialize Core & Voice
+    # Mitsuha ගේ Core එක init කරනවා
     core = CompanionCore()
-    voice_thread = VoiceThread(core)
-    
-    window = MainWindow()
+
+    # MainWindow එකට core එක අරන් යනවා (ඔයාගේ window.py එකේ මේක දාගන්න)
+    window = MainWindow(core) 
     window.show()
-
-    # Voice Thread එක පටන් ගන්න
-    voice_thread.start()
-
-    # App එක Close වෙද්දී Thread එක නතර කරන්න
-    app.aboutToQuit.connect(voice_thread.terminate)
 
     sys.exit(app.exec())
