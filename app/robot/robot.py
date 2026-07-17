@@ -23,10 +23,8 @@ class Robot:
         self.anim_engine = AnimationEngine()
         self.anim_manager = AnimationManager()
         
-        # Companion Core එක initialize කරන්න
         self.companion = CompanionCore()
         
-        # 2. Behavior Tree (Brain) - Nodes ඇතුලත් කිරීම
         self.brain = Selector([
             ExpressionReactionNode(),
             IdleWanderNode()
@@ -37,18 +35,26 @@ class Robot:
         )
 
         self.effects = EffectsManager()
+        
+        # Physics setup
         self.spring_x = SpringFloat(tension=0.15, dampening=0.62)
         self.spring_y = SpringFloat(tension=0.15, dampening=0.62)
 
         self.breathe_offset = 0.0
         self.is_cyclops = False
+        
+        # Timers
         self._next_blink_timer = random.uniform(2.0, 5.0)
         self._idle_look_timer = random.uniform(1.0, 3.0)
+        
+        # --- NEW: Life-like Movement Timers ---
         self._micro_saccade_timer = 0.2
+        self.mood_based_multiplier = 1.0
 
     def sync_mood_to_expression(self):
-        """Mood එක අනුව Expression එක ස්වයංක්‍රීයව වෙනස් කිරීම."""
-        # මෙතන Expression Enum එකේ තියෙන නම් හරිද කියලා බලන්න (උදා: HAPPY, SAD, NEUTRAL)
+        # AttributeError එක වළක්වා ගැනීමට getattr පාවිච්චි කරන්න
+        current_mood = getattr(self.companion, 'mood', 'NEUTRAL')
+        
         mood_map = {
             "HAPPY": Expression.HAPPY,
             "SUPPORTIVE": Expression.NEUTRAL,
@@ -56,27 +62,31 @@ class Robot:
             "NEUTRAL": Expression.NEUTRAL
         }
         
-        target_expr = mood_map.get(self.companion.mood, Expression.NEUTRAL)
+        target_expr = mood_map.get(current_mood, Expression.NEUTRAL)
         
-        # දැනට තියෙන expression එක නෙවෙයි නම් විතරක් මාරු කරන්න
         if self.expr_manager.current_expression != target_expr:
             self.expr_manager.set_expression(target_expr)
+            
+        # Mood එක අනුව ඇස් වල වේගය වෙනස් කරන්න (Happy නම් වේගවත්)
+        self.mood_based_multiplier = 1.5 if current_mood == "HAPPY" else 1.0
 
     def update(self, dt):
-        # Mood එක අනුව Expression එක Sync කරන්න
         self.sync_mood_to_expression()
-
-        # Brain එකේ logic එක run කරන්න
         self.brain.tick(self)
-        
-        # Animation Manager එක update කරන්න
         self.anim_manager.update(dt)
-
-        # Auto blink එක
         self._handle_auto_blink(dt)
-
         self.anim_engine.update(dt)
         self.effects.update(dt, self.expr_manager.current_expression)
+
+        # --- NEW: Micro-Saccades (ජීවමාන චලනය) ---
+        self._micro_saccade_timer -= dt
+        if self._micro_saccade_timer <= 0:
+            # ඇස් වලට ඉතාම සියුම් චලනයක් එකතු කිරීම
+            jitter_x = random.uniform(-1.0, 1.0)
+            jitter_y = random.uniform(-1.0, 1.0)
+            self.spring_x.target += jitter_x
+            self.spring_y.target += jitter_y
+            self._micro_saccade_timer = random.uniform(0.1, 0.3) # 0.1s - 0.3s අතර වේගයෙන්
 
         self.spring_x.update()
         self.spring_y.update()
@@ -88,27 +98,22 @@ class Robot:
             self.breathe_offset = math.sin(self.effects.pulse_time * 3.0) * 1.5
 
     def _handle_auto_blink(self, dt):
-        if self.expr_manager.current_expression in (
-            Expression.SLEEPING,
-            Expression.CHARGING,
-        ):
+        if self.expr_manager.current_expression in (Expression.SLEEPING, Expression.CHARGING):
             return
 
+        # Mood එක අනුව blink rate එක වෙනස් කිරීම
+        blink_rate = random.uniform(1.5, 5.0) / self.mood_based_multiplier
+        
         self._next_blink_timer -= dt
-
         if self._next_blink_timer <= 0:
             self.blink()
-            self._next_blink_timer = random.uniform(1.5, 5.0)
+            self._next_blink_timer = blink_rate
 
     def look_at(self, offset_x, offset_y):
         self.spring_x.target = offset_x
         self.spring_y.target = offset_y
-        self._idle_look_timer = 4.0
 
     def blink(self, duration=APP_CONFIG.BLINK_DURATION):
-        """
-        Blink animation using the AnimationManager.
-        """
         def perform_blink():
             def open_eyes():
                 for is_left, eye in ((True, self.left_eye), (False, self.right_eye)):
