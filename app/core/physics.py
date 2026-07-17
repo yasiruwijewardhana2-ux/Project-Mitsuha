@@ -84,6 +84,15 @@ class SpringFloat:
         self.target = float(value)
         self.velocity = 0.0
 
+    @property
+    def val(self):
+        """Alias for .value -- renderer.py reads spring_x.val directly."""
+        return self.value
+
+    @val.setter
+    def val(self, v):
+        self.value = v
+
     def is_settled(self, tolerance=0.01):
         """True once the spring has essentially reached its target and
         stopped moving -- useful for gating 'idle' behaviors."""
