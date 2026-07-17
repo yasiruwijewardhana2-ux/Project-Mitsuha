@@ -16,8 +16,9 @@ from app.core.serial_controller import SerialController
 
 class MainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, core):
         super().__init__()
+        self.core = core
 
         self.setWindowTitle(APP_CONFIG.WINDOW_TITLE)
 
