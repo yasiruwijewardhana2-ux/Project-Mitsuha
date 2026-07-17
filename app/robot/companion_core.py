@@ -66,7 +66,7 @@ Respond to the user's latest message. Remember to speak directly to {self.user_n
         try:
             # අලුත් SDK එකෙන් API Call එක කරන ක්‍රමය
             response = self.client.models.generate_content(
-                model='gemini-1.5-flash',
+                model='gemini-2.5-flash',
                 contents=prompt,
             )
             mitsuha_reply = response.text.strip()
