@@ -1,7 +1,6 @@
-from gtts import gTTS
-import pygame
 import os
-import speech_recognition as sr
+import time
+from gtts import gTTS
 from PySide6.QtCore import QThread, Signal
 
 class VoiceThread(QThread):
@@ -10,37 +9,27 @@ class VoiceThread(QThread):
     def __init__(self, core):
         super().__init__()
         self.core = core
-        pygame.mixer.init()
         self.running = True
 
     def speak(self, text):
         print(f"Mitsuha: {text}")
-        # text එක audio file එකක් විදිහට හදනවා
         tts = gTTS(text=text, lang='en')
         tts.save("response.mp3")
         
-        # Audio එක play කරනවා
-        pygame.mixer.music.load("response.mp3")
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
+        # Windows default player එකෙන් play කරනවා (කිසිම lib එකක් ඕන නෑ)
+        os.startfile("response.mp3")
         
-        # වැඩේ ඉවර වුණාම file එක delete කරනවා
-        os.remove("response.mp3")
+        # Audio එක ප්ලේ වෙන්න පොඩි වෙලාවක් දෙනවා
+        time.sleep(3) 
+        if os.path.exists("response.mp3"):
+            os.remove("response.mp3")
 
     def run(self):
-        self.speak("Ohayou Yasiru! I am ready to talk.")
-        recognizer = sr.Recognizer()
-        
+        self.speak("Ohayou Yasiru! I am ready.")
+        # Mic එකේ අවුල නිසා, දානකම් තාවකාලිකව මෙතන input එකක් ගන්නවා
         while self.running:
-            with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source)
-                try:
-                    audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
-                    text = recognizer.recognize_google(audio)
-                    if text:
-                        self.text_received.emit(text)
-                        response = self.core.get_response(text)
-                        self.speak(response)
-                except:
-                    continue
+            user_input = input("You (Type here): ")
+            if user_input:
+                self.text_received.emit(user_input)
+                response = self.core.get_response(user_input)
+                self.speak(response)
