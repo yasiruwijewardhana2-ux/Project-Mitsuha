@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 from dotenv import load_dotenv
 from app.robot.database import DatabaseManager
 
@@ -17,18 +17,16 @@ class CompanionCore:
         # Database එකෙන් user ගේ නම ගැනීම
         self.user_name = self.db.get_preference("user_name") or "Yasiru"
         
-        # Gemini API එක Configure කිරීම
+        # Gemini API එකConfigure කිරීම (අලුත් ක්‍රමයට)
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             print("⚠️ WARNING: GEMINI_API_KEY එක .env ෆයිල් එකේ නැහැ!")
+            self.client = None
         else:
-            genai.configure(api_key=api_key)
-            
-        # Gemini Model එක සෙට් කිරීම (වේගවත් සහ කාර්යක්ෂම gemini-1.5-flash භාවිතය)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+            self.client = genai.Client(api_key=api_key)
 
     def record_chat(self, sender, message):
-        """චැට් එක ඩේටාබේස් එකේ සේව් කිරීම (User: ... හෝ Mitsuha: ...)"""
+        """චැට් එක ඩේටාබේස් එකේ සේව් කිරීම"""
         formatted_message = f"{sender}: {message}"
         self.db.log_interaction(formatted_message)
 
@@ -37,7 +35,7 @@ class CompanionCore:
         self.db.save_preference("user_name", name)
 
     def get_persona_prompt(self):
-        """Mitsuha ගේ පෞරුෂත්වය (Persona) අර්ථ දක්වන ප්‍රොම්ප්ට් එක"""
+        """Mitsuha ගේ Persona එක"""
         return (f"You are {self.name}, a {', '.join(self.traits)} digital companion. "
                 f"Your user's name is {self.user_name}. "
                 "You are supportive with design and personal problems, but also witty and playful. "
@@ -45,15 +43,13 @@ class CompanionCore:
                 "Always respond in the language the user speaks to you (Sinhala or English).")
 
     def get_response(self, user_message):
-        """පරණ මෙමරිය සහ Gemini භාවිතයෙන් පිළිතුරු ලබා දෙන ප්‍රධාන Function එක"""
-        # 1. User කියපු දේ ඩේටාබේස් එකේ සේව් කරනවා
+        """පිළිතුරු ලබා දෙන ප්‍රධාන Function එක"""
         self.record_chat("User", user_message)
         
-        # 2. පසුගිය මැසේජ් 8 ඩේටාබේස් එකෙන් ලබා ගැනීම
+        # පසුගිය මැසේජ් 8 ලබා ගැනීම
         recent_chats = self.db.get_recent_interactions(limit=8)
         chat_history_str = "\n".join(recent_chats)
         
-        # 3. Gemini එකට දෙන ප්‍රොම්ප්ට් එක සැකසීම
         prompt = f"""
 {self.get_persona_prompt()}
 
@@ -64,14 +60,18 @@ Recent Chat History:
 
 Respond to the user's latest message. Remember to speak directly to {self.user_name}.
 """
+        if not self.client:
+            return "අයියෝ, මගේ මොළේ පොඩි අවුලක් ගියා! .env ෆයිල් එකේ GEMINI_API_KEY එක සෙට් කරලා නෑ වගේ."
+            
         try:
-            # 4. Gemini එකෙන් උත්තරය ලබා ගැනීම
-            response = self.model.generate_content(prompt)
+            # අලුත් SDK එකෙන් API Call එක කරන ක්‍රමය
+            response = self.client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt,
+            )
             mitsuha_reply = response.text.strip()
             
-            # 5. Mitsuha ගේ උත්තරයත් ඩේටාබේස් එකේ සේව් කරනවා
             self.record_chat("Mitsuha", mitsuha_reply)
-            
             return mitsuha_reply
         except Exception as e:
             print(f"Error generating response: {e}")
