@@ -46,7 +46,26 @@ class Robot:
         self._idle_look_timer = random.uniform(1.0, 3.0)
         self._micro_saccade_timer = 0.2
 
+    def sync_mood_to_expression(self):
+        """Mood එක අනුව Expression එක ස්වයංක්‍රීයව වෙනස් කිරීම."""
+        # මෙතන Expression Enum එකේ තියෙන නම් හරිද කියලා බලන්න (උදා: HAPPY, SAD, NEUTRAL)
+        mood_map = {
+            "HAPPY": Expression.HAPPY,
+            "SUPPORTIVE": Expression.NEUTRAL,
+            "BORED": Expression.SAD,
+            "NEUTRAL": Expression.NEUTRAL
+        }
+        
+        target_expr = mood_map.get(self.companion.mood, Expression.NEUTRAL)
+        
+        # දැනට තියෙන expression එක නෙවෙයි නම් විතරක් මාරු කරන්න
+        if self.expr_manager.current_expression != target_expr:
+            self.expr_manager.set_expression(target_expr)
+
     def update(self, dt):
+        # Mood එක අනුව Expression එක Sync කරන්න
+        self.sync_mood_to_expression()
+
         # Brain එකේ logic එක run කරන්න
         self.brain.tick(self)
         
