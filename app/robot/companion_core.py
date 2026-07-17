@@ -1,10 +1,16 @@
 import os
+from pathlib import Path
 from google import genai
 from dotenv import load_dotenv
 from app.robot.database import DatabaseManager
 
-# .env ෆයිල් එක load කිරීම
-load_dotenv()
+# .env ෆයිල් එකේ absolute path එක සොයා ගැනීම (Bulletproof Method)
+# app/robot/companion_core.py සිට ප්‍රධාන Project-Mitsuha ෆෝල්ඩරයට පියවර 3ක් පසුපසට
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+dotenv_path = BASE_DIR / '.env'
+
+# .env ෆයිල් එක හරියටම ලිපිනයෙන්ම load කිරීම
+load_dotenv(dotenv_path=dotenv_path)
 
 class CompanionCore:
     def __init__(self):
@@ -17,7 +23,7 @@ class CompanionCore:
         # Database එකෙන් user ගේ නම ගැනීම
         self.user_name = self.db.get_preference("user_name") or "Yasiru"
         
-        # Gemini API එකConfigure කිරීම (අලුත් ක්‍රමයට)
+        # Gemini API එක Configure කිරීම
         api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             print("⚠️ WARNING: GEMINI_API_KEY එක .env ෆයිල් එකේ නැහැ!")
@@ -64,7 +70,7 @@ Respond to the user's latest message. Remember to speak directly to {self.user_n
             return "අයියෝ, මගේ මොළේ පොඩි අවුලක් ගියා! .env ෆයිල් එකේ GEMINI_API_KEY එක සෙට් කරලා නෑ වගේ."
             
         try:
-            # අලුත් SDK එකෙන් API Call එක කරන ක්‍රමය
+            # අලුත් SDK සහ අලුත්ම Gemini 2.5 flash මොඩලය භාවිතය
             response = self.client.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=prompt,
