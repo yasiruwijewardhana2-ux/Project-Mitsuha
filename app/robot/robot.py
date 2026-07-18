@@ -239,26 +239,37 @@ class Robot:
         self.base_look_y = offset_y
 
     def blink(self, duration=APP_CONFIG.BLINK_DURATION):
+        # Proportional close/open, like a real blink: quick close, slightly
+        # slower reopen. The old version closed in duration/2 but reopened
+        # in a full extra `duration` -- inconsistent, and (combined with the
+        # short default BLINK_DURATION) left only ~3 frames for the close
+        # phase, too few for any easing to read as smooth.
+        close_time = duration * 0.4
+        open_time = duration * 0.6
+
         def perform_blink():
             def open_eyes():
                 for is_left, eye in ((True, self.left_eye), (False, self.right_eye)):
                     targets = self.expr_manager.get_target_params(self.expr_manager.current_expression, is_left)
-                    self.anim_engine.animate(eye, "top_lid", targets["top_lid"], duration, priority=AnimationPriority.HIGH)
-                    self.anim_engine.animate(eye, "bottom_lid", targets["bottom_lid"], duration, priority=AnimationPriority.HIGH)
+                    self.anim_engine.animate(eye, "top_lid", targets["top_lid"], open_time, priority=AnimationPriority.HIGH)
+                    self.anim_engine.animate(eye, "bottom_lid", targets["bottom_lid"], open_time, priority=AnimationPriority.HIGH)
 
             for eye in (self.left_eye, self.right_eye):
                 if eye == self.right_eye and self.is_cyclops:
                     continue
                 self.anim_engine.animate(
-                    eye, "top_lid", 1.0, duration / 2,
+                    eye, "top_lid", 1.0, close_time,
                     priority=AnimationPriority.HIGH,
                     on_complete=open_eyes if eye == self.left_eye else None,
                 )
-                self.anim_engine.animate(eye, "bottom_lid", 0.0, duration / 2, priority=AnimationPriority.HIGH)
+                self.anim_engine.animate(eye, "bottom_lid", 0.0, close_time, priority=AnimationPriority.HIGH)
 
         self.anim_manager.add_task(AnimationTask(
             name="blink",
             priority=AnimationPriority.HIGH,
             action=perform_blink,
-            duration=duration,
+            # Matches the real total visual time (close + open) now, so the
+            # task queue doesn't consider the blink "done" while the eyes
+            # are still mid-reopen.
+            duration=close_time + open_time,
         ))
