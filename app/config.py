@@ -113,7 +113,7 @@ class Config:
     EYE_RADIUS: float = 35.0
     EYE_SPACING: float = 125.0
 
-    BLINK_DURATION: float = 0.10
+    BLINK_DURATION: float = 0.18
     EXPRESSION_TRANSITION_DURATION: float = 0.30
 
     BG_COLOR: Tuple[int, int, int] = (2, 2, 5)
