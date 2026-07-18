@@ -19,7 +19,7 @@ from app.robot.autonomy.behavior_tree import Selector, IdleWanderNode, Expressio
 MAX_DT = 0.1                    # clamp dt so lag spikes don't jerk the springs/animations
 
 # Micro-saccades: fast, tiny, near-constant eye jitter (reads as "alive/focused")
-SACCADE_JITTER_RANGE = 1.0
+SACCADE_JITTER_RANGE = 2.5
 SACCADE_INTERVAL_MIN = 0.1
 SACCADE_INTERVAL_MAX = 0.3
 
@@ -30,8 +30,8 @@ SACCADE_INTERVAL_MAX = 0.3
 GLANCE_CHANCE_INTERVAL_MIN = 2.5
 GLANCE_CHANCE_INTERVAL_MAX = 6.0
 GLANCE_PROBABILITY = 0.35       # not every interval triggers a glance
-GLANCE_RANGE = 6.0
-GLANCE_HOLD_TIME = 0.35         # how long the glance offset lasts before decaying
+GLANCE_RANGE = 12.0
+GLANCE_HOLD_TIME = 0.4          # how long the glance offset lasts before decaying
 
 BLINK_RATE_MIN = 1.5
 BLINK_RATE_MAX = 5.0
@@ -166,12 +166,29 @@ class Robot:
                 self._glance_offset_x = 0.0
                 self._glance_offset_y = 0.0
 
-        # --- Micro-saccade: tiny near-constant twitch ---
+        # --- Micro-saccade: tiny, near-constant twitch ---
         self._micro_saccade_timer -= dt
         if self._micro_saccade_timer <= 0:
             self._micro_saccade_timer = random.uniform(SACCADE_INTERVAL_MIN, SACCADE_INTERVAL_MAX)
-            self._saccade_jitter_x = random.uniform(-SACCADE_JITTER_RANGE, SACCADE_JITTER_RANGE)
-            self._saccade_jitter_y = random.uniform(-SACCADE_JITTER_RANGE, SACCADE_JITTER_RANGE)
+
+            new_jitter_x = random.uniform(-SACCADE_JITTER_RANGE, SACCADE_JITTER_RANGE)
+            new_jitter_y = random.uniform(-SACCADE_JITTER_RANGE, SACCADE_JITTER_RANGE)
+
+            # Real micro-saccades are fast ballistic jumps, not smooth
+            # eased motion. Feeding jitter through the spring like the rest
+            # of the gaze meant the spring's damping (tuned for big, smooth
+            # look-at moves) mostly cancelled it out before the next jitter
+            # interval even arrived -- the eyes barely moved. Instead we
+            # snap the jitter directly onto .value, and shift .target by the
+            # same delta so the spring doesn't immediately try to pull the
+            # snap back out.
+            delta_x = new_jitter_x - self._saccade_jitter_x
+            delta_y = new_jitter_y - self._saccade_jitter_y
+            self.spring_x.value += delta_x
+            self.spring_y.value += delta_y
+
+            self._saccade_jitter_x = new_jitter_x
+            self._saccade_jitter_y = new_jitter_y
 
         # Recompute the spring target fresh each frame from the three
         # layers -- nothing here permanently mutates base_look_*, so the
