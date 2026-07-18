@@ -1,7 +1,7 @@
 import math
 import random
 
-from app.config import Expression, APP_CONFIG, AnimationPriority
+from app.config import Expression, APP_CONFIG, AnimationPriority, Emotion, EMOTION_TO_EXPRESSION, ENERGETIC_EMOTIONS
 from app.core.physics import SpringFloat
 from app.core.animation import AnimationEngine
 from app.robot.eye import Eye
@@ -36,13 +36,6 @@ GLANCE_HOLD_TIME = 0.35         # how long the glance offset lasts before decayi
 BLINK_RATE_MIN = 1.5
 BLINK_RATE_MAX = 5.0
 DOUBLE_BLINK_CHANCE = 0.12      # occasional double-blink for realism
-
-MOOD_TO_EXPRESSION = {
-    "HAPPY": Expression.HAPPY,
-    "SUPPORTIVE": Expression.NEUTRAL,
-    "BORED": Expression.SAD,
-    "NEUTRAL": Expression.NEUTRAL,
-}
 
 
 class Robot:
@@ -103,19 +96,32 @@ class Robot:
     def sync_mood_to_expression(self):
         """Apply companion mood to the current expression, unless the
         behavior tree already changed the expression this tick (it wins,
-        since it reacts to more specific/immediate events)."""
-        current_mood = getattr(self.companion, "mood", "NEUTRAL")
-        target_expr = MOOD_TO_EXPRESSION.get(current_mood, Expression.NEUTRAL)
+        since it reacts to more specific/immediate events).
+
+        NOTE: ExpressionReactionNode in the behavior tree now does this
+        same job (reading self.companion.mood -> EMOTION_TO_EXPRESSION).
+        Having both active isn't harmful -- this one just becomes a no-op
+        once the behavior tree node has already synced it -- but long-term
+        only one of them should own this. Worth deciding which as the
+        behavior tree grows more responsibilities.
+        """
+        current_mood = getattr(self.companion, "mood", Emotion.CALM)
+        target_expr = EMOTION_TO_EXPRESSION.get(current_mood, Expression.NEUTRAL)
 
         if self.expr_manager.current_expression != target_expr:
             self.expr_manager.set_expression(target_expr)
 
-        # Faster eye movement when happy
-        self.mood_based_multiplier = 1.5 if current_mood == "HAPPY" else 1.0
+        # Faster eye movement for energetic/lively moods
+        self.mood_based_multiplier = 1.5 if current_mood in ENERGETIC_EMOTIONS else 1.0
 
     def update(self, dt):
         # Clamp dt so a lag spike doesn't cause a visible jump/teleport
         dt = min(dt, MAX_DT)
+
+        # Behavior tree nodes receive `robot` but not `dt` directly (brain.tick
+        # only takes self) -- stash it here so timer-based nodes like
+        # IdleWanderNode can read robot._last_dt instead of assuming 60fps.
+        self._last_dt = dt
 
         expr_before_brain = self.expr_manager.current_expression
         self.brain.tick(self)
@@ -126,8 +132,8 @@ class Robot:
         if not brain_changed_expression:
             self.sync_mood_to_expression()
         else:
-            current_mood = getattr(self.companion, "mood", "NEUTRAL")
-            self.mood_based_multiplier = 1.5 if current_mood == "HAPPY" else 1.0
+            current_mood = getattr(self.companion, "mood", Emotion.CALM)
+            self.mood_based_multiplier = 1.5 if current_mood in ENERGETIC_EMOTIONS else 1.0
 
         self.anim_manager.update(dt)
         self._handle_auto_blink(dt)
@@ -184,15 +190,25 @@ class Robot:
         if self._next_blink_timer <= 0:
             self.blink()
 
-            # Occasional quick double-blink for realism
+            # Occasional quick double-blink for realism.
+            # AnimationTask has no "delay" field -- AnimationManager just
+            # plays queued tasks back-to-back once the active one's duration
+            # elapses. So instead of a delay, we queue a short no-op "gap"
+            # task first, then the follow-up blink, which naturally spaces
+            # the second blink out after the first one finishes.
             if random.random() < DOUBLE_BLINK_CHANCE:
-                second_blink_delay = APP_CONFIG.BLINK_DURATION + 0.12
+                gap = 0.12
+                self.anim_manager.add_task(AnimationTask(
+                    name="double_blink_gap",
+                    priority=AnimationPriority.HIGH,
+                    action=lambda: None,
+                    duration=gap,
+                ))
                 self.anim_manager.add_task(AnimationTask(
                     name="double_blink_followup",
                     priority=AnimationPriority.HIGH,
                     action=self.blink,
-                    duration=0.0,
-                    delay=second_blink_delay,
+                    duration=APP_CONFIG.BLINK_DURATION,
                 ))
 
             # Only roll a new random rate when we actually reset the timer,
