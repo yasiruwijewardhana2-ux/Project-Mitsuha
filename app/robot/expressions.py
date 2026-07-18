@@ -100,6 +100,65 @@ class ExpressionManager:
                     "scale_y": 0.8
                 })
 
+        elif expr == Expression.LISTENING:
+            # Alert, attentive -- slightly widened and leaned in, no droop.
+            params.update({
+                "scale_x": 1.05,
+                "scale_y": 1.05,
+                "top_lid": 0.05,
+                "offset_y": -2,
+            })
+
+        elif expr == Expression.SCARED:
+            # Wide, tense eyes with worried, angled lower lids.
+            params.update({
+                "scale_x": 1.2,
+                "scale_y": 1.2,
+                "top_lid": 0.0,
+                "bottom_lid": 0.15,
+                "bottom_lid_angle": -10 * sign,
+                "offset_y": -3,
+            })
+
+        elif expr == Expression.SURPRISED:
+            # Fully wide open, minimal lids -- the "!" reaction.
+            params.update({
+                "scale_x": 1.3,
+                "scale_y": 1.3,
+                "top_lid": 0.0,
+                "bottom_lid": 0.0,
+                "offset_y": -5,
+            })
+
+        elif expr == Expression.LAUGHING:
+            # Squinted crescent "^_^" eyes -- more extreme than HAPPY.
+            params.update({
+                "bottom_lid": 0.5,
+                "bottom_lid_angle": 20 * sign,
+                "top_lid": 0.5,
+                "top_lid_angle": 15 * sign,
+                "scale_y": 0.7,
+            })
+
+        elif expr == Expression.TIRED:
+            # Heavy drooping lids, softer than full SLEEPING.
+            params.update({
+                "top_lid": 0.6,
+                "bottom_lid": 0.15,
+                "offset_y": 5,
+                "scale_y": 0.85,
+            })
+
+        elif expr == Expression.LOVE:
+            # Soft curved, gentle-smile eyes.
+            params.update({
+                "bottom_lid": 0.5,
+                "bottom_lid_angle": 25 * sign,
+                "top_lid": 0.15,
+                "scale_x": 1.05,
+                "scale_y": 0.85,
+            })
+
         return params
 
     def set_expression(
