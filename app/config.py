@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple
+from typing import Tuple, Dict
 from enum import Enum, auto
 
 
@@ -19,6 +19,72 @@ class Expression(Enum):
     LAUGHING = auto()
     TIRED = auto()
     LOVE = auto()
+
+
+class Emotion(Enum):
+    """The 20 core emotions from docs/021_Emotion_System.md. This is
+    Mitsuha's *internal* emotional state, tracked by the Emotion Engine
+    (CompanionCore) -- richer than what the face can actually display.
+
+    EMOTION_TO_EXPRESSION below maps each of these down to one of the 15
+    Expression values the eyes/animation system can render. Several
+    emotions currently share an Expression because there's no dedicated
+    visual for them yet (e.g. CURIOUS and FOCUSED both read as THINKING).
+    If you want distinct looks for those later, that's a change to
+    expressions.py's visual set, not to this mapping.
+    """
+    HAPPY = auto()
+    CURIOUS = auto()
+    CALM = auto()
+    EXCITED = auto()
+    THINKING = auto()
+    CARING = auto()
+    MOTIVATED = auto()
+    FOCUSED = auto()
+    SLEEPY = auto()
+    RELAXED = auto()
+    CONFUSED = auto()
+    SURPRISED = auto()
+    PLAYFUL = auto()
+    PROUD = auto()
+    SHY = auto()
+    WORRIED = auto()
+    PROTECTIVE = auto()
+    LISTENING = auto()
+    GREETING = auto()
+    LONELY = auto()
+
+
+# Best-effort mapping until dedicated visuals exist for every emotion.
+EMOTION_TO_EXPRESSION: Dict[Emotion, Expression] = {
+    Emotion.HAPPY: Expression.HAPPY,
+    Emotion.CURIOUS: Expression.THINKING,
+    Emotion.CALM: Expression.NEUTRAL,
+    Emotion.EXCITED: Expression.EXCITED,
+    Emotion.THINKING: Expression.THINKING,
+    Emotion.CARING: Expression.LOVE,
+    Emotion.MOTIVATED: Expression.EXCITED,
+    Emotion.FOCUSED: Expression.THINKING,
+    Emotion.SLEEPY: Expression.TIRED,
+    Emotion.RELAXED: Expression.NEUTRAL,
+    Emotion.CONFUSED: Expression.CONFUSED,
+    Emotion.SURPRISED: Expression.SURPRISED,
+    Emotion.PLAYFUL: Expression.LAUGHING,
+    Emotion.PROUD: Expression.HAPPY,
+    Emotion.SHY: Expression.SAD,
+    Emotion.WORRIED: Expression.SCARED,
+    Emotion.PROTECTIVE: Expression.ANGRY,
+    Emotion.LISTENING: Expression.LISTENING,
+    Emotion.GREETING: Expression.HAPPY,
+    Emotion.LONELY: Expression.SAD,
+}
+
+# Emotions that should make eye/look movement read as faster/livelier.
+# Used by robot.py's mood_based_multiplier.
+ENERGETIC_EMOTIONS = {
+    Emotion.HAPPY, Emotion.EXCITED, Emotion.PLAYFUL,
+    Emotion.MOTIVATED, Emotion.SURPRISED, Emotion.GREETING,
+}
 
 
 class VisualMode(Enum):
