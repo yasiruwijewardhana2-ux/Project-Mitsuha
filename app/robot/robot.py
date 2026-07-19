@@ -39,14 +39,21 @@ DOUBLE_BLINK_CHANCE = 0.12      # occasional double-blink for realism
 
 
 class Robot:
-    def __init__(self):
+    def __init__(self, companion=None):
         self.left_eye = Eye(is_left=True)
         self.right_eye = Eye(is_left=False)
 
         self.anim_engine = AnimationEngine()
         self.anim_manager = AnimationManager()
 
-        self.companion = CompanionCore()
+        # Accept a shared CompanionCore from the caller (e.g. window.py's
+        # `core`, which VoiceThread also uses) instead of always creating a
+        # fresh one. Previously Robot() silently made its own CompanionCore,
+        # completely disconnected from whatever instance actually handled
+        # chat/voice replies -- so mood updates from real conversations never
+        # reached the face at all. Falls back to creating one if none is
+        # passed, so Robot() still works standalone (e.g. in tests).
+        self.companion = companion if companion is not None else CompanionCore()
 
         self.brain = Selector([
             ExpressionReactionNode(),
@@ -93,25 +100,14 @@ class Robot:
         self._micro_saccade_timer = 0.2
         self.mood_based_multiplier = 1.0
 
-    def sync_mood_to_expression(self):
-        """Apply companion mood to the current expression, unless the
-        behavior tree already changed the expression this tick (it wins,
-        since it reacts to more specific/immediate events).
-
-        NOTE: ExpressionReactionNode in the behavior tree now does this
-        same job (reading self.companion.mood -> EMOTION_TO_EXPRESSION).
-        Having both active isn't harmful -- this one just becomes a no-op
-        once the behavior tree node has already synced it -- but long-term
-        only one of them should own this. Worth deciding which as the
-        behavior tree grows more responsibilities.
+    def _apply_mood_multiplier(self):
+        """Faster eye movement for energetic/lively moods. This is purely
+        derived/idempotent (safe to recompute every frame), unlike actual
+        expression-setting -- which is owned exclusively by
+        ExpressionReactionNode in the behavior tree now (edge-triggered on
+        mood change) to avoid fighting manual/keyboard expression overrides.
         """
         current_mood = getattr(self.companion, "mood", Emotion.CALM)
-        target_expr = EMOTION_TO_EXPRESSION.get(current_mood, Expression.NEUTRAL)
-
-        if self.expr_manager.current_expression != target_expr:
-            self.expr_manager.set_expression(target_expr)
-
-        # Faster eye movement for energetic/lively moods
         self.mood_based_multiplier = 1.5 if current_mood in ENERGETIC_EMOTIONS else 1.0
 
     def update(self, dt):
@@ -123,17 +119,10 @@ class Robot:
         # IdleWanderNode can read robot._last_dt instead of assuming 60fps.
         self._last_dt = dt
 
-        expr_before_brain = self.expr_manager.current_expression
+        # ExpressionReactionNode (in self.brain) is the sole owner of
+        # mood -> expression sync, edge-triggered on actual mood changes.
         self.brain.tick(self)
-        brain_changed_expression = self.expr_manager.current_expression != expr_before_brain
-
-        # Only let mood drive the expression if the behavior tree left it
-        # alone this tick -- prevents the two systems fighting/flapping.
-        if not brain_changed_expression:
-            self.sync_mood_to_expression()
-        else:
-            current_mood = getattr(self.companion, "mood", Emotion.CALM)
-            self.mood_based_multiplier = 1.5 if current_mood in ENERGETIC_EMOTIONS else 1.0
+        self._apply_mood_multiplier()
 
         self.anim_manager.update(dt)
         self._handle_auto_blink(dt)
