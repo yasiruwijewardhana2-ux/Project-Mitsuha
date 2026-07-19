@@ -105,22 +105,22 @@ class IdleWanderNode(Node):
 
 
 class ExpressionReactionNode(Node):
-    """Applies the Emotion Engine's current mood to the robot's face.
+    """The sole path from Emotion Engine mood -> facial expression.
 
-    FIX: the original node didn't actually react to anything -- it checked
-    an unrelated idle-timer threshold that (given how robot.py resets that
-    timer) could basically never be true, and even on "success" it had no
-    effect at all. This version does the one job the name implies: read
-    self.companion.mood (an Emotion, set by CompanionCore) and make sure
-    the face matches it, using the same EMOTION_TO_EXPRESSION table the
-    rest of the system uses.
-
-    Note: this now overlaps with robot.py's own sync_mood_to_expression().
-    Only one of them should own this responsibility long-term -- see the
-    note left in robot.py. For now this node is a no-op SUCCESS if the
-    expression already matches, so having both active isn't harmful, just
-    slightly redundant.
+    FIX: previously this compared "does current expression match mood"
+    every single frame and force-overwrote on any mismatch. Since mood
+    rarely changes on its own, that meant ANY manually-set expression
+    (keyboard shortcuts, startup demo calls, other animation triggers)
+    got stomped back to the mood-mapped expression within one frame --
+    which is exactly why pressing expression-test keys appeared to do
+    nothing. This version is edge-triggered: it only pushes a new
+    expression when the mood has actually changed since the last time it
+    synced, so manual overrides stick until a real mood change happens.
     """
+
+    def __init__(self):
+        self._last_synced_mood = None
+        self._primed = False
 
     def tick(self, robot):
         companion = getattr(robot, "companion", None)
@@ -131,12 +131,23 @@ class ExpressionReactionNode(Node):
         if not isinstance(mood, Emotion):
             return Status.FAILURE
 
+        # First tick ever: just learn the current mood as the baseline
+        # without forcing an expression change. Otherwise the very first
+        # update() call would always "sync" (None != mood is always true),
+        # stomping any expression set before update() ever ran -- e.g. a
+        # startup demo call like window.py's set_expression(EXCITED).
+        if not self._primed:
+            self._last_synced_mood = mood
+            self._primed = True
+            return Status.FAILURE
+
+        if mood == self._last_synced_mood:
+            return Status.FAILURE
+
         target_expr = EMOTION_TO_EXPRESSION.get(mood)
         if target_expr is None:
             return Status.FAILURE
 
-        if robot.expr_manager.current_expression != target_expr:
-            robot.expr_manager.set_expression(target_expr)
-            return Status.SUCCESS
-
-        return Status.FAILURE
+        robot.expr_manager.set_expression(target_expr)
+        self._last_synced_mood = mood
+        return Status.SUCCESS
