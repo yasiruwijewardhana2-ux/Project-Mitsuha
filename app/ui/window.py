@@ -12,6 +12,7 @@ from app.config import (
 from app.robot.robot import Robot
 from app.core.renderer import RobotEyeRenderer
 from app.core.serial_controller import SerialController
+from app.robot.voice_handler import VoiceThread
 
 
 class MainWindow(QMainWindow):
@@ -31,7 +32,7 @@ class MainWindow(QMainWindow):
             f"background-color: rgb{APP_CONFIG.BG_COLOR};"
         )
 
-        self.robot = Robot()
+        self.robot = Robot(companion=self.core)
 
         self.renderer = RobotEyeRenderer(self.robot)
         self.setCentralWidget(self.renderer)
@@ -46,6 +47,16 @@ class MainWindow(QMainWindow):
 
         self.serial_thread = SerialController()
         self.serial_thread.start()
+
+        # Previously VoiceThread was never instantiated anywhere in the app
+        # (voice_handler.py existed but nothing started it) -- meaning
+        # get_response() could never be called during normal use, so mood
+        # could never change and the face would stay on its initial
+        # expression forever. Sharing self.core here (same instance as
+        # self.robot.companion above) means a chat reply's emotion now
+        # actually reaches the face.
+        self.voice_thread = VoiceThread(self.core)
+        self.voice_thread.start()
 
         self.robot.expr_manager.set_expression(
             Expression.EXCITED
@@ -136,4 +147,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         self.serial_thread.stop()
+        # NOTE: voice_handler.py's run() loop blocks on input(), so setting
+        # running=False here won't actually interrupt it until the next
+        # Enter keypress in the console -- a real limitation worth fixing
+        # once voice_handler moves off console input to real mic capture.
+        self.voice_thread.running = False
         super().closeEvent(event)
